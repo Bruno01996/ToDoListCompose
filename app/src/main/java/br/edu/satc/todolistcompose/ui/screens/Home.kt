@@ -2,6 +2,7 @@
 
 package br.edu.satc.todolistcompose.ui.screens
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,13 +41,16 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import br.edu.satc.todolistcompose.TaskData
+import br.edu.satc.todolistcompose.model.Task
 import br.edu.satc.todolistcompose.ui.components.TaskCard
 import kotlinx.coroutines.launch
 
-
-@Preview(showBackground = true)
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    tasks: List<Task>,
+    onNewTaskCreated: (newTask: Task) -> Unit,
+    onCompleteTask: (task: Task, complete: Boolean) -> Unit
+) {
 
     // states by remember
     // Guardam valores importantes de controle em nossa home
@@ -119,19 +123,27 @@ fun HomeScreen() {
          * O que aparece no "meio".
          * Para ficar mais organizado, montei o conteúdo em functions separadas.
          * */
-        HomeContent(innerPadding)
-        NewTask(showBottomSheet = showBottomSheet) { showBottomSheet = false }
+        HomeContent(
+            innerPadding = innerPadding,
+            tasks = tasks,
+            onCompleteTask = { task, complete -> onCompleteTask(task, complete) })
+
+        NewTask(showBottomSheet = showBottomSheet) {
+            showBottomSheet = false
+            if (it != null) {
+                onNewTaskCreated(it)
+            }
+        }
 
     }
 }
 
 @Composable
-fun HomeContent(innerPadding: PaddingValues) {
-
-    val tasks = mutableListOf<TaskData>()
-    for (i in 0..5) {
-        tasks.add(TaskData("Tarefa " + i, "Descricao " + i, i % 2 == 0))
-    }
+fun HomeContent(
+    innerPadding: PaddingValues,
+    tasks: List<Task>,
+    onCompleteTask: (task: Task, complete: Boolean) -> Unit
+) {
 
     /**
      * Aqui simplesmente temos uma Column com o nosso conteúdo.
@@ -152,7 +164,9 @@ fun HomeContent(innerPadding: PaddingValues) {
         verticalArrangement = Arrangement.Top
     ) {
         for (task in tasks) {
-            TaskCard(task.title, task.description, task.complete)
+            TaskCard(task.title, task.description, task.complete) {
+                onCompleteTask(task, it)
+            }
         }
     }
 }
@@ -162,7 +176,7 @@ fun HomeContent(innerPadding: PaddingValues) {
  * Aqui podemos "cadastrar uma nova Task".
  */
 @Composable
-fun NewTask(showBottomSheet: Boolean, onComplete: () -> Unit) {
+fun NewTask(showBottomSheet: Boolean, onComplete: (newTask: Task?) -> Unit) {
     val sheetState = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     var taskTitle by remember {
@@ -175,7 +189,7 @@ fun NewTask(showBottomSheet: Boolean, onComplete: () -> Unit) {
     if (showBottomSheet) {
         ModalBottomSheet(
             onDismissRequest = {
-                onComplete()
+                onComplete(null)
             },
             sheetState = sheetState,
 
@@ -190,16 +204,16 @@ fun NewTask(showBottomSheet: Boolean, onComplete: () -> Unit) {
 
                 OutlinedTextField(
                     value = taskTitle,
-                    onValueChange = {taskTitle = it},
+                    onValueChange = { taskTitle = it },
                     label = { Text(text = "Título da tarefa") })
                 OutlinedTextField(
                     value = taskDescription,
-                    onValueChange = {taskDescription = it},
+                    onValueChange = { taskDescription = it },
                     label = { Text(text = "Descrição da tarefa") })
                 Button(modifier = Modifier.padding(top = 4.dp), onClick = {
                     scope.launch { sheetState.hide() }.invokeOnCompletion {
                         if (!sheetState.isVisible) {
-                            onComplete()
+                            onComplete(Task(0, taskTitle, taskDescription, false))
                         }
                     }
                 }) {
